@@ -1,0 +1,9 @@
+name = "clusters_100_5"
+cluster_count = 5
+dim_count = 100
+center_min = -1000
+center_max = 1000
+std_min = 100
+std_max = 300
+min_cluster_size = 10000
+max_cluster_size = 100000

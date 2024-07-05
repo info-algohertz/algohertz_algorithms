@@ -1,0 +1,10 @@
+[package]
+name = "silhouette_score"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+parquet = "52.0"
+ndarray = "0.15"
+ndarray-parallel = "0.9"
+rayon = "1.10"

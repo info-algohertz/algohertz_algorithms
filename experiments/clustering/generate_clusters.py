@@ -45,11 +45,11 @@ for i in range(config["cluster_count"]):
         config["std_min"],
         config["std_max"],        
     )
-    df["cluster"] = i
+    df.insert(0, "cluster", i)
     clusters.append(df)
 
 cluster_dataset = pd.concat(clusters)
 
 dataset_out_path = dataset_dir_path + "/" + config["name"] + ".parquet"
-
-cluster_dataset.to_parquet(dataset_out_path)
+print(list(cluster_dataset.dtypes))
+cluster_dataset.to_parquet(dataset_out_path, index=False)

@@ -1,0 +1,10 @@
+[package]
+name = "ah_algo"
+version = "0.1.0"
+authors = ["Dávid Natingga <info@algohertz.com>"]
+edition = "2021"
+description = "AlgoHertz algorithms for machine learning and time series processing"
+license = "MIT"
+repository = "https://github.com/info-algohertz/algohertz_algorithms"
+
+[dependencies]

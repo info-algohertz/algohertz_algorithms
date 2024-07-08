@@ -53,6 +53,11 @@ fn compute_silhouette_score(
     clusters: &HashMap<i64, Vec<Vec<f64>>>,
     dist_metric: fn(&Vec<f64>, &Vec<f64>) -> f64,
 ) -> f64 {
+    let mut point_count = 0;
+    for cluster in clusters.values() {
+        point_count += cluster.len();
+    }
+
     let mut scores: Vec<f64> = vec![];
     let cluster_numbers = clusters.keys();
     for cluster_number in cluster_numbers.clone() {
@@ -76,6 +81,10 @@ fn compute_silhouette_score(
             }
             let s = (b - a) / a.max(b);
             scores.push(s);
+            if scores.len() % 100 == 0 {
+                let progress = 100.0*scores.len() as f64/point_count as f64;
+                println!("{:?}%", progress);
+            }
         }
     }
     let score = compute_mean(&scores);

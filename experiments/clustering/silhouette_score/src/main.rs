@@ -13,6 +13,36 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Result;
 
+fn compute_centroid(points: &Vec<Vec<f64>>) -> Vec<f64> {
+    if points.len() == 0 {
+        panic!("Cannot compute a centroid of an empty cluster.");
+    }
+    let mut centroid = vec![];
+    for i in 0..points.get(0).unwrap().len() {
+        let median = compute_median(&points[i]);
+        centroid.push(median);        
+    }
+    return centroid;
+}
+
+fn compute_median(values: &Vec<f64>) -> f64 {
+    let mut sorted_values = values.clone();
+    sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let len = sorted_values.len();
+    if len == 0 {
+        panic!("Cannot compute median of an empty vector");
+    }
+
+    if len % 2 == 1 {
+        sorted_values[len / 2]
+    } else {
+        let mid1 = sorted_values[len / 2 - 1];
+        let mid2 = sorted_values[len / 2];
+        (mid1 + mid2) / 2.0
+    }
+}
+
 fn compute_mean(values: &Vec<f64>) -> f64 {
     let mut sum: f64 = 0.0;
     for v in values {
@@ -36,55 +66,38 @@ fn euclidean_metric(point_a: &Vec<f64>, point_b: &Vec<f64>) -> f64 {
     sum_of_squares.sqrt()
 }
 
-fn compute_mean_distance(
-    points: &Vec<Vec<f64>>,
-    point: &Vec<f64>,
-    dist_metric: fn(&Vec<f64>, &Vec<f64>) -> f64,
-) -> f64 {
-    let mut distances: Vec<f64> = vec![];
-    for point2 in points {
-        let d = dist_metric(point, point2);
-        distances.push(d);
-    }
-    return compute_mean(&distances);
-}
-
 fn compute_silhouette_score(
     clusters: &HashMap<i64, Vec<Vec<f64>>>,
     dist_metric: fn(&Vec<f64>, &Vec<f64>) -> f64,
 ) -> f64 {
-    let mut point_count = 0;
-    for cluster in clusters.values() {
-        point_count += cluster.len();
-    }
-
     let mut scores: Vec<f64> = vec![];
     let cluster_numbers = clusters.keys();
+    let mut centroids: HashMap<i64, Vec<f64>> = HashMap::with_capacity(cluster_numbers.len());
+    for cluster_number in cluster_numbers.clone() {
+        centroids.insert(*cluster_number, compute_centroid(clusters.get(&cluster_number).unwrap()));
+    }
+    
     for cluster_number in cluster_numbers.clone() {
         let points = clusters.get(&cluster_number).unwrap();
         let ratio = points.len() as f64 / (points.len() as f64 - 1.0);
+        let cluster_centroid = centroids.get(cluster_number).unwrap();
         for point in points {
-            let d = compute_mean_distance(&points, &point, dist_metric);
+            let d = dist_metric(&point, &cluster_centroid);
             let a = ratio * d;
 
-            //let distances: Vec<f64> = vec![];
             let mut b = f64::INFINITY;
             for cluster_number2 in cluster_numbers.clone() {
                 if cluster_number == cluster_number2 {
                     continue;
                 }
-                let points2 = clusters.get(&cluster_number2).unwrap();
-                let d = compute_mean_distance(&points2, &point, dist_metric);
+                let cluster_centroid2 = centroids.get(cluster_number2).unwrap();
+                let d = dist_metric(&point, &cluster_centroid2);
                 if d < b {
                     b = d;
                 }
             }
             let s = (b - a) / a.max(b);
             scores.push(s);
-            if scores.len() % 100 == 0 {
-                let progress = 100.0*scores.len() as f64/point_count as f64;
-                println!("{:?}%", progress);
-            }
         }
     }
     let score = compute_mean(&scores);

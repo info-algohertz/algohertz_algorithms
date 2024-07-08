@@ -5,80 +5,60 @@ cargo run -- ~/data/algohertz/clustering/datasets/clusters_100_5.parquet
 
 Copyright © 2024 AlgoHertz. License: MIT. */
 
-use parquet::file::reader::{FileReader, SerializedFileReader};
-use parquet::record::RowAccessor;
+use polars::prelude::*;
+use std::io::Result;
 use std::fs::File;
-use std::path::Path;
-use ndarray::Array2;
 use std::collections::HashMap;
 
-fn euclidean_distance(a: &[f64], b: &[f64]) -> f64 {
-    a.iter().zip(b).map(|(x, y)| (x - y).powi(2)).sum::<f64>().sqrt()
+fn compute_centroid(dim_count: &usize, points: &Vec<Vec<f64>>) -> Vec<f64> {
+    return points[0].clone();
 }
 
-fn main() {
-    let path = std::env::args().nth(1).expect("Please provide a Parquet file path.");
-    let file = File::open(&Path::new(&path)).expect("Failed to open Parquet file");
-    let reader = SerializedFileReader::new(file).expect("Failed to create Parquet reader");
-    let iter = reader.get_row_iter(None).expect("Failed to get row iterator");
-
-    let mut points = Vec::new();
-    let mut clusters = Vec::new();
-    dbg!("Processing the rows...");
-    for row_result in iter {
-        let row = row_result.unwrap();
-        let cluster = match row.get_long(0) {
-            Ok(cluster) => cluster as i32,
-            Err(_) => row.get_int(0).unwrap(),
-        };
-        let mut point = Vec::new();
-        for i in 1..row.len() {
-            point.push(row.get_double(i).unwrap());
-        }
-        clusters.push(cluster);
-        points.push(point);
+fn main() -> Result<()> {
+    let path = std::env::args().nth(1).expect("Please provide a Parquet file path to the cluster dataset.");
+    
+    let df = ParquetReader::new(File::open(path)?)
+        .finish()
+        .expect("Failed to read Parquet file");    
+    let dim_count = df.shape().1 - 1;
+    assert!(df.get_column_names()[0] == "cluster");
+    
+    let binding = df.column("cluster").unwrap().unique().unwrap();
+    let mut cluster_numbers: Vec<i64> = vec![];
+    for some_cluster in binding.i64().unwrap() {
+        let cluster = some_cluster.unwrap();
+        cluster_numbers.push(cluster);
     }
-
-    let n = points.len();
-    let d = points[0].len();
-
-    let data = Array2::from_shape_vec((n, d), points.into_iter().flatten().collect()).unwrap();
-    let clusters = Array2::from_shape_vec((n, 1), clusters).unwrap();
-    dbg!("Calculating the Silhouette score...");
-    let silhouette_score = calculate_silhouette_score(&data, &clusters);
-    println!("Silhouette Score: {}", silhouette_score);
-}
-
-fn calculate_silhouette_score(data: &Array2<f64>, clusters: &Array2<i32>) -> f64 {
-    let n = data.shape()[0];
-
-    let mut a = vec![0.0; n];
-    let mut b = vec![0.0; n];
-    let mut s = vec![0.0; n];
-
-    let mut cluster_map: HashMap<i32, Vec<usize>> = HashMap::new();
-    for (i, &cluster) in clusters.column(0).iter().enumerate() {
-        cluster_map.entry(cluster).or_insert(Vec::new()).push(i);
-    }
-
-    data.axis_chunks_iter(ndarray::Axis(0), 1).enumerate().for_each(|(i, point)| {
-        let cluster = clusters[(i, 0)];
-        let point = point.row(0).to_vec();
         
-        let same_cluster_points: Vec<_> = cluster_map[&cluster].iter().filter(|&&index| index != i).collect();
-        let other_cluster_points: Vec<_> = cluster_map.iter().filter(|(&c, _)| c != cluster).flat_map(|(_, indices)| indices).collect();
-
-        if !same_cluster_points.is_empty() {
-            a[i] = same_cluster_points.iter().map(|&&index| euclidean_distance(&point, &data.row(index).to_vec())).sum::<f64>() / same_cluster_points.len() as f64;
+    let mut clusters: HashMap<i64, Vec<Vec<f64>>> = HashMap::with_capacity(cluster_numbers.len());
+    for cluster_number in cluster_numbers {
+        dbg!(cluster_number);
+        clusters.insert(cluster_number, Vec::new());
+    }
+    
+    for idx in 0..df.height() {
+        let row = df.get_row(idx);
+        let result = &row.unwrap().0;
+        let cluster = match result[0] {
+            AnyValue::Int64(val) => Some(val),
+            AnyValue::UInt32(val) => Some(val as i64),
+            _ => None,
+        }.unwrap();
+        let raw_point = result[1..].to_vec();
+        let mut point: Vec<f64> = vec![];
+        for value in raw_point {
+            let v = match value {
+                AnyValue::Float64(val) => Some(val),
+                _ => None
+            }.unwrap();
+            point.push(v);
         }
-
-        if !other_cluster_points.is_empty() {
-            b[i] = other_cluster_points.iter().map(|&&index| euclidean_distance(&point, &data.row(index).to_vec())).min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-        }
-
-        s[i] = (b[i] - a[i]) / a[i].max(b[i]);
-    });
-
-    s.iter().sum::<f64>() / n as f64
+        clusters.get_mut(&cluster).unwrap().push(point);
+    }
+    
+    let centroid = compute_centroid(&dim_count, clusters.get(&0).unwrap());
+    dbg!(centroid);
+    
+    Ok(())
 }
 

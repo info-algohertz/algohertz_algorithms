@@ -42,10 +42,13 @@ fn euclidean_metric(point_a: &Vec<f64>, point_b: &Vec<f64>) -> f64 {
     sum_of_squares.sqrt()
 }
 
-// TODO
 fn compute_mean_distance(points: &Vec<Vec<f64>>, point: &Vec<f64>, dist_metric: fn(&Vec<f64>, &Vec<f64>) -> f64) -> f64 {
-    let d = dist_metric(&points[0], point);
-    return d;
+    let mut distances: Vec<f64> = vec![];
+    for point in points {
+        let d = dist_metric(&points[0], point);
+        distances.push(d);
+    }
+    return compute_mean(&distances);
 }
 
 fn compute_silhouette_score(dim_count: &usize, clusters: &HashMap<i64, Vec<Vec<f64>>>) -> f64 {

@@ -10,8 +10,22 @@ use std::io::Result;
 use std::fs::File;
 use std::collections::HashMap;
 
+fn compute_mean(values: &Vec<f64>) -> f64 {
+    let mut sum: f64 = 0.0;
+    for v in values {
+        sum += v;
+    }
+    let mean: f64 = sum/values.len() as f64;
+    return mean;
+}
+
 fn compute_centroid(dim_count: &usize, points: &Vec<Vec<f64>>) -> Vec<f64> {
-    return points[0].clone();
+    let mut centroid = vec![];
+    for i in 0..*dim_count {
+        let mean = compute_mean(&points[i]);
+        centroid.push(mean);        
+    }
+    return centroid;
 }
 
 fn main() -> Result<()> {

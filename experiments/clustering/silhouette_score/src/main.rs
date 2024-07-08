@@ -10,6 +10,7 @@ use std::io::Result;
 use std::fs::File;
 use std::collections::HashMap;
 
+// TODO: compute median instead as it is more robust than the mean in the noisy
 fn compute_mean(values: &Vec<f64>) -> f64 {
     let mut sum: f64 = 0.0;
     for v in values {
@@ -26,6 +27,37 @@ fn compute_centroid(dim_count: &usize, points: &Vec<Vec<f64>>) -> Vec<f64> {
         centroid.push(mean);        
     }
     return centroid;
+}
+
+fn euclidean_metric(point_a: &Vec<f64>, point_b: &Vec<f64>) -> f64 {
+    if point_a.len() != point_b.len() {
+        panic!("Points must have the same dimension");
+    }
+
+    let sum_of_squares: f64 = point_a.iter()
+        .zip(point_b.iter())
+        .map(|(a, b)| (a - b).powi(2))
+        .sum();
+
+    sum_of_squares.sqrt()
+}
+
+// TODO
+fn compute_mean_distance(points: &Vec<Vec<f64>>, point: &Vec<f64>, dist_metric: fn(&Vec<f64>, &Vec<f64>) -> f64) -> f64 {
+    let d = dist_metric(&points[0], point);
+    return d;
+}
+
+fn compute_silhouette_score(dim_count: &usize, clusters: &HashMap<i64, Vec<Vec<f64>>>) -> f64 {
+    let mut scores: Vec<f64> = vec![];
+    let cluster_numbers = clusters.keys();
+    for cluster_number in cluster_numbers {
+        let points = clusters.get(&cluster_number).unwrap();
+        let d = compute_mean_distance(&points, &points[0], euclidean_metric);
+        scores.push(d);
+    }
+    let score = compute_mean(&scores);
+    return score;
 }
 
 fn main() -> Result<()> {
@@ -46,7 +78,6 @@ fn main() -> Result<()> {
         
     let mut clusters: HashMap<i64, Vec<Vec<f64>>> = HashMap::with_capacity(cluster_numbers.len());
     for cluster_number in cluster_numbers {
-        dbg!(cluster_number);
         clusters.insert(cluster_number, Vec::new());
     }
     
